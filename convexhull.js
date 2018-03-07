@@ -1,7 +1,7 @@
-// var SAT = require(['sat'])
-import 'sat'
+// var SAT = require('sat')
+// import SAT './node_modules/sat/SAT.js'
 
-class ConvexHullManager {
+export class ConvexHullManager {
 
   constructor( existinghulls ) {
     this.hulls = existinghulls
@@ -13,8 +13,28 @@ class ConvexHullManager {
     return this.hulls
   }
 
-  circleToHull ({ center, radius }) {
+  // Returns octagonal polygon that contains the circle
+  circleToHull({ center:{ x, y }, radius }) {
+    let hull = []
+    let adj = Math.sqrt( Math.pow( radius, 2 ) * 2 ) - radius
+    let hyp = Math.sqrt( Math.pow( adj, 2 ) * 2 )
 
+    let magnitudes = [ -1, 1 ]
+    let axis = [ 'x', 'y' ]
+    let a = true
+    for( let i = 0; i < 4; magnitudes[ !a|0 ] *= -1, i++, a = !a ) {
+      let p = {
+        x: x + magnitudes[ 0 ] * radius,
+        y: y + magnitudes[ 1 ] * radius
+      }
+      for( let j = 0, k = !a; j < 2; j++, k = !k ) {
+        let point = {}
+        point[ axis[ !k|0 ]] = p[ axis[ !k|0 ]] - magnitudes[ !k|0 ] * hyp
+        point[ axis[ k|0 ]] = p[ axis[ k|0 ] ]
+        hull.push( point )
+      }
+    }
+    return hull
   }
 
   mergeHulls( h1, h2 ) {
@@ -24,9 +44,12 @@ class ConvexHullManager {
 
   addHull( hull ) {
     let tangentPoints = []
-    for( let i = 0; i < this.hulls.length; i++ ) {
+    let i = 0
+    // for( let i = 0; i < this.hulls.length; i++ ) {
+    while( i < this.hulls.length ) {
 
-      if( this.isOverlapping( this.hulls[ i ], hull )) {
+      if( !this.isOverlapping( this.hulls[ i ], hull )) {
+        i++
         continue
       }
 
@@ -43,17 +66,17 @@ class ConvexHullManager {
       for( let bound = 0; this.q < 4; bound++, h = !h ) {
 
         console.log( 'FINDING ' + ( bound % 2 ? 'UPPER' : 'LOWER') + ' TANGENT...' )
-        let t = this.getNextTanget( hulls[ h|0 ], hulls[ !h|0 ], idx[ h|0 ], idx[ !h|0 ], maximas[ h|0 ], maximas[ !h|0 ])
+        let tangent = this.getNextTanget( hulls[ h|0 ], hulls[ !h|0 ], idx[ h|0 ], idx[ !h|0 ], maximas[ h|0 ], maximas[ !h|0 ])
         console.log(( bound % 2 ? 'UPPER' : 'LOWER' ) + ' TANGENT FOUND!')
 
-        idx [ h|0 ] = t[ 0 ]
-        idx [ !h|0 ] = t[ 1 ]
+        idx [ h|0 ] = tangent[ 0 ]
+        idx [ !h|0 ] = tangent[ 1 ]
 
         if( idx[ h|0 ] >= hulls[ h|0 ].length - 1 && idx[ !h|0 ] >= hulls[ !h|0 ].length - 1 && bound % 2 == 0 ) {
           break
         }
 
-        tangents.push( t )
+        tangents.push( tangent )
         tangentPoints.push( hulls[ h|0 ][ idx [ h|0 ]])
         tangentPoints.push( hulls[ !h|0 ][ idx [ !h|0 ]])
 
@@ -63,6 +86,8 @@ class ConvexHullManager {
           break
         }
       }
+
+      h = maximas[ 1 ][ 0 ].value < maximas[ 0 ][ 0 ].value
 
       let newHull = []
       for( let t = 0, idx = [ 0, 0 ]; idx[ h|0 ] < hulls[ h|0 ].length; ) {
@@ -92,17 +117,17 @@ class ConvexHullManager {
     let next_axis = m1[( this.q + 1 ) % 4 ].axis
     let quadrant = this.quadrants[ this.q % 4 ]
     let next_quadrant = this.quadrants[( this.q + 1 ) % 4 ]
-    let maxima1 = m1[ this.q%4 ].value
-    let maxima2 = m2[ this.q%4 ].value
-    let next_maxima1 = m1[ (this.q+1)%4 ].value
-    let next_maxima2 = m2[ (this.q+1)%4 ].value
+    let maxima1 = m1[ this.q % 4 ].value
+    let maxima2 = m2[ this.q % 4 ].value
+    let next_maxima1 = m1[( this.q +1 ) % 4 ].value
+    let next_maxima2 = m2[( this.q + 1 ) % 4 ].value
 
     if(( i1 > 0 || i2 > 0 ) && this.isOutsideMaxima( next_maxima1, next_maxima2, next_quadrant )) {
-      while( next_quadrant[ next_axis ] * ( p2[ next_axis ] - next_maxima2 ) < 0 ) {
+      while( next_quadrant * ( p2[ next_axis ] - next_maxima2 ) < 0 ) {
         i2++
         p2 = this.getPoint( h2, i2 )
       }
-      while( next_quadrant[ next_axis ] * ( p1[ next_axis ] - next_maxima1 ) < 0 ) {
+      while( next_quadrant * ( p1[ next_axis ] - next_maxima1 ) < 0 ) {
         i1++
         p1 = this.getPoint( h1, i1 )
       }
@@ -124,6 +149,8 @@ class ConvexHullManager {
       next_maxima2 = m2[( this.q + 1 ) % 4 ].value
 
       console.log('POSITION:', i1, i2, next_axis )
+
+      console.log(this.q, p2[ next_axis ], next_maxima2)
 
       if( p2[ next_axis ] == next_maxima2 ) {
         console.log('CATCHING UP TO OTHER HULL...')
@@ -170,7 +197,6 @@ class ConvexHullManager {
           let next_is_outside_point = this.isOutsideMaxima( projection[ axis ], p2[ axis ])
           // let next_is_outside_next_maxima = this.isOutsideMaxima( p1_next[ next_axis ], maxima2, next_quadrant )
           if( next_is_outside_point ) {
-            console.log('shizzzzy')
             if( next_quadrant * ( p2[ next_axis ] - p1_next[ next_axis ]) < 0 ) {
               i1++
               continue
@@ -203,7 +229,16 @@ class ConvexHullManager {
   }
 
   isOverlapping( h1, h2 ) {
-    return false
+    let polygons = []
+    for( let h of arguments ) {
+      let points = []
+      for( let i = h.length - 1; i >= 0; i-- ) {
+        points.push( new SAT.Vector( h[ i ].x, h[ i ].y ))
+      }
+      polygons.push(
+        new SAT.Polygon(new SAT.Vector(), points ))
+    }
+    return SAT.testPolygonPolygon( polygons[ 0 ], polygons[ 1 ])
   }
 
   getPoint( arr, i ) {
@@ -228,10 +263,6 @@ class ConvexHullManager {
     return qm * ( maxima - coordinate ) < 0
   }
 
-  getQuadrant( q ) {
-    return quadrants[ Math.min( q, 3 )]
-  }
-
   getMaximas( h1, h2 ) {
     let m = []
     for( let i in arguments ) {
@@ -241,7 +272,7 @@ class ConvexHullManager {
         let _p = this.getPoint( arguments[ i ], j + 1 )
         let a = m[ i ][ q ].axis
   
-        if( this.getQuadrant( q )[ a ] * ( _p[ a ] - p[ a ]) < 0) {
+        if( this.quadrants[ q ] * ( _p[ a ] - p[ a ]) < 0) {
           m[ i ][ q ].value = p[ a ]
           q++
         }
@@ -264,164 +295,17 @@ class ConvexHullManager {
     let projected_x = ( p1.y - b ) / m
     return { x: projected_x, y: projected_y }
   }
+  
+  toRadians( degrees ) {
+    return degrees * Math.PI / 180;
+  }
 
+  toDegrees( radians ) {
+    return radians * 180 / Math.PI;
+  }
 
-}
-
-
-
-
-const quadrants = [
-  { x: -1, y: 1 },
-  { x: 1, y: 1 },
-  { x: 1, y: -1 },
-  { x: -1, y: -1 }
-]
-
-Math.radians = function(degrees) {
-	return degrees * Math.PI / 180;
-};
-
-// Converts from radians to degrees.
-Math.degrees = function(radians) {
-	return radians * 180 / Math.PI;
-};
-
-// checks whether the point crosses the convex hull
-// or not
-const orientation = ( a, b, c ) =>
-{
-    let res = (b.second-a.second)*(c.first-b.first) -
-              (c.second-b.second)*(b.first-a.first);
- 
-    if (res == 0)
-        return 0;
-    if (res > 0)
-        return 1;
-    return -1;
-}
- 
-// Returns the square of distance between two input points
-const distance = ( p1, p2 ) =>
-{
+  distance( p1, p2 ) {
     return Math.sqrt(Math.abs((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)))
-}
-
-// const sqDist = ( p1, p2 ) =>
-// {
-//     return (p1.first-p2.first)*(p1.first-p2.first) +
-//            (p1.second-p2.second)*(p1.second-p2.second);
-// }
-
-const direction = ( p1, p2 ) => {
-	if( p1.x == p2.x ) {
-		return Infinity
-	}
-	if( p1.y > p2.y) {
-		return -1
-	} else if( p1.y < p2.y ) {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-const quadrantDirection = ( q ) => {
-	return -( q.x * q.y )
-}
-
-const getQuadrant = ( q ) => {
-	return quadrants[ Math.min( q, 3 )]
-}
-
-const isNextQuadrant = ( q, p1, p2 ) => {
-    let x_slope = p2.x - p1.x
-    let y_slope = -( p2.y - p1.y )
-    return ( getQuadrant( q ).x * x_slope * getQuadrant( q ).y * y_slope ) <= 0 
-}
-
-// const nextPoint = ( points, i ) => {
-// 	if( i == points.length - 1) {
-// 		return points[ 0 ]
-// 	}
-// 	// console.log('fuck',points)
-// 	// console.log('dhit', points[ i + 1 ])
-// 	return points[ i + 1 ]
-// }
-
-// const lastPoint = ( points, i ) => {
-// 	if( i == 0) {
-// 		return points[ points.length - 1 ]
-// 	}
-// 	return points[ i - 1 ]
-// }
-
-const getPoint = ( arr, i ) => {
-  if( i >= 0 ) {
-    return arr[ i % arr.length ]
-  } else {
-    let abs = Math.abs( i )
-    if( abs % arr.length == 0 ) {
-      return arr[ 0 ]
-    } else {
-      let mod = -(abs % arr.length)
-      return arr[ arr.length + mod ]
-    }
   }
-}
 
-const inCircle = ( circle, point ) => {
-	let { r: circleRadius, ...circleCenter } = circle
-	return distance( point, circleCenter ) < circleRadius
-}
-
-const getAngle = ( v, p1, p2 ) => {
-	let v_p1 = distance( v, p1 )
-	let v_p2 = distance( v, p2 )
-	let p1_p2 = distance( p1, p2 )
-	return Math.round(Math.degrees( Math.acos(( Math.pow( v_p1, 2 ) + Math.pow( v_p2, 2 ) - Math.pow( p1_p2, 2 )) / (2 * v_p1 * v_p2))))
-}
-
-const isAcuteAngle = deg => {
-	return Math.round( deg ) <= 90
-}
-
-const getSlope = ( p1, p2 ) => {
-	return ( p2.y - p1.y ) / ( p2.x - p1.x )
-}
-
-const getInverseSlope = ( p1, p2 ) => {
-	return ( p2.x - p1.x ) / ( p2.y - p1.y )
-}
-
-const getPointProjection = ( p2, p2_next, p1) => {
-  let d_x = ( p2_next.x - p2.x )
-  if( d_x == 0 ) {
-    return {
-      x: p2.x,
-      y: p1.y
-    }
-  }
-  let d_y = ( p2_next.y - p2.y )
-  let m = d_y / d_x
-  let b = p2.y - ( m * p2.x )
-  let projected_y = ( m * p1.x ) + b
-  let projected_x = ( p1.y - b ) / m
-  return { x: projected_x, y: projected_y }
-}
-
-const line_intersect = (x1, y1, x2, y2, x3, y3, x4, y4) =>
-{
-    var ua, ub, denom = (y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1)
-    if (denom == 0) {
-        return null
-    }
-    ua = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3))/denom
-    ub = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3))/denom
-    return {
-        x: x1 + ua*(x2 - x1),
-        y: y1 + ua*(y2 - y1),
-        seg1: ua >= 0 && ua <= 1,
-        seg2: ub >= 0 && ub <= 1
-    }
 }

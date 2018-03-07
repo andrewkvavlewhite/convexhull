@@ -1,4 +1,6 @@
 
+import { ConvexHullManager } from './convexhull.js'
+
 const canvas = $( '#canvas' ).get(0)
 const ctx = canvas.getContext( '2d' )
 const offset = $( '#canvas' ).parent().offset()
@@ -24,8 +26,9 @@ const hulls = new ConvexHullManager([
   // ...testcase10
   // ...testcase11
   // ...testcase12
-  // ...testcase14
   // ...testcase13
+  // ...testcase14
+  // ...testcase15
 ])
 let newCircle = null
 
@@ -46,6 +49,10 @@ const getCoordinates = e => {
   let x = e.pageX - offset.left
   let y = e.pageY - offset.top
   return { x, y }
+}
+
+const distance = ( p1, p2 ) => {
+  return Math.sqrt(Math.abs((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)))
 }
 
 let isDragging = false
@@ -74,65 +81,9 @@ $( '#canvas' ).mousedown( e => {
 $( '#addBtn' ).click( e => {
   if( !newCircle ) return
 
-  let { r: circleRadius, ...circleCenter } = newCircle
+  let { r: radius, ...center } = newCircle
 
-  let hull = [ circleCenter ]
-  let newHull = []
-
-  let i = 0
-  let q = 0
-  while( i < hull.length && q < 4 ) {
-
-    if( inCircle( newCircle, hull[ i ])) {
-      console.log('shiz')
-    }
-
-    let isDifferentQuadrant = quadrantDirection( getQuadrant( q ) ) != direction( hull[ i ], getPoint( hull, i + 1 ))
-    if( inCircle( newCircle, getPoint( hull, i + 1 )) && isDifferentQuadrant ) {
-      newHull.push({
-        x: circleCenter.x + circleRadius * getQuadrant( q ).x,
-        y: circleCenter.y + circleRadius * getQuadrant( q ).y
-      })
-      q++
-    } else {
-      i++
-    }
-  }
-
-  q = 0
-  for( i = 0; i < newHull.length; i++ ) {
-    let point = getPoint( newHull, i )
-    let prevPoint = getPoint( newHull, i - 1 )
-    let nextPoint = getPoint( newHull, i + 1 )
-    let deg = getAngle( point, prevPoint, nextPoint )
-    if( isAcuteAngle( deg )) {
-      // let q = getQuadrant( point, prevPoint, nextPoint )
-      let adj = distance( circleCenter, point ) - circleRadius
-      let hyp = adj / Math.cos( Math.radians(deg/2) )
-      let newPoints = []
-      let correction1 = {
-        x: getPoint( newHull, i ).x - ( hyp * getQuadrant( q ).x ),
-        y: getPoint( newHull, i ).y
-      }
-      let correction2 = {
-        x: getPoint( newHull, i ).x,
-        y: getPoint( newHull, i ).y - ( hyp * getQuadrant( q ).y )
-      }
-      if( q % 2 == 1) {
-        newPoints.push(correction1)
-        newPoints.push(correction2)
-      } else {
-        newPoints.push(correction2)
-        newPoints.push(correction1)
-      }
-
-      newHull.splice( i, 1, ...newPoints)
-      i++
-    }
-    if( isNextQuadrant( q, point, nextPoint )) {
-      q++
-    }
-  }
+  let newHull = hulls.circleToHull({ radius, center })
   let test = JSON.parse(JSON.stringify(hulls.getHulls()))
   test.push( newHull )
   console.log(JSON.stringify(test))
@@ -140,14 +91,6 @@ $( '#addBtn' ).click( e => {
   let tangentPoints = hulls.addHull( newHull )
   
   drawHulls()
-
-  // let edgePoints = []
-  // for( let deg = 0; deg <= 360; deg += 45 ) {
-  //   edgePoints.push({
-  //     x: newCircle.x + circleRadius * Math.cos( Math.radians( deg )),
-  //     y: newCircle.y + circleRadius * Math.sin( Math.radians( deg ))
-  //   })
-  // }
   for( let point of tangentPoints ) {
     ctx.beginPath()
     ctx.arc( point.x, point.y , 5, 0, 2 * Math.PI )
@@ -160,6 +103,10 @@ $( '#addBtn' ).click( e => {
 drawHulls()
 
 if( hulls.hulls[ 0 ] && hulls.hulls[ 1 ]) {
+  // let i = 8
+  // ctx.beginPath()
+  // ctx.arc( hulls.hulls[ 1 ][ i ].x, hulls.hulls[ 1 ][ i ].y , 5, 0, 2 * Math.PI )
+  // ctx.stroke()
   let tangentPoints = hulls.mergeHulls( hulls.hulls[0], hulls.hulls[1])
   for( let point of tangentPoints ) {
     ctx.beginPath()
@@ -168,5 +115,4 @@ if( hulls.hulls[ 0 ] && hulls.hulls[ 1 ]) {
   }
 }
 
-// mergeHulls3( hulls.getHulls())
-drawHulls()
+// drawHulls()
